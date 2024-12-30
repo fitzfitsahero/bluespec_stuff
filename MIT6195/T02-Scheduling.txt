@@ -1,0 +1,61 @@
+6.S195 Tutorial 2
+Bluespec Scheduling Related Warning and Errors
+by: Andy Wright
+
+This is the code that was shown in tutorial 2 of 6.s195. The rule-rule folder
+shows a few examples of rule-rule scheduling interactions. The rule-method
+folder shows examples of rule-method scheduling interactions, specifically
+action shadowing and how to avoid it. In each folder, all.bsv has a summary of
+all the bsv code, compiler messages, and test bench output for each example.
+One important point of this tutorial is that even if the Bluespec compiler
+finishes compilation, there may be a scheduling error in your code. Always read
+the output of the compiler.
+
+rule-rule/
+    Test 1 - rB < rA
+    Test 2 - rA C rB
+    Test 3 - rA C rB
+    Test 4 - rA < rC < rB < rA. This is a chain, so the Bluespec compiler
+        chooses a place to break it and inserts an additional conflict between
+        rA and rC to make rA C rC.
+rule-method/
+    Test 1 - This was an attempt at a multiplier with a register at the output
+        that would show invalid data if the method to insert data wasn't
+        called. Due to action shadowing between the input method and an
+        internal rule, the output of the register is always invalid.
+    Test 2 - This is an attempt to simplify the previous code to get to the
+        foundation of the problem. The module is designed to implement a
+        counter with a reset. Since the compiler chooses reset to shadow
+        increment, it works as expected, but it doesn't give insight to Test 1.
+    Test 3 - This test simplifies the counter in Test 2 to a module that should
+        always output 1 unless the reset action is enabled. The Bluespec
+        compiler chooses the "increment" rule to shadow the reset rule, and 0
+        is never seen on the output.
+    Test 4 - This fixes the module from test 3 by using Ehrs to force the
+        desired behavior. The compiler no longer gives warnings about shadowed
+        actions.
+    Test 5 - This implements the counter from test 2 by using Ehrs to force the
+        desired behavior. The compiler no longer gives warnings about shadowed
+        actions.
+    Test 6 - This correctly implements the multiplier from test 1 with Ehrs to
+        force the desired behavior. The compiler no longer gives warnings about
+        shadowed actions.
+    Test 2a - This is the same as test 2, but the way the test bench is
+        constructed causes a scheduling error. The rule do_test is forcing
+        get_count and reset to be executed in parallel. These two methods don't
+        conflict, but there is a conflict introduced with the increment rule.
+        Because of the way the Bluespec compiler chose to shadow actions,
+        the increment rule is scheduled between get_count and reset. To keep
+        the ordering between get_count, increment, and reset, increment would
+        need to be executed in parallel with the rule do_test, breaking the one
+        rule at a time nature of Bluespec scheduling.
+    Test 2b - This is the same as test 2a, but the do_test rule has been
+        modified to either call get_count or reset, but not both. This prevents
+        the conflict between do_test and increment, but it makes the scheduling
+        relation between them dynamic (their ordering depends on the state of
+        the test bench module). The bluspec compiler doesn't support dynamic
+        scheduling so this module doesn't work.
+    Test 4a - This fixes the simplified counter in test 3 with the preemption
+        attribute instead of using Ehrs like in test 4.
+    Test 6a - This has the same type of conflict as 2a, but it was introduced
+        with Ehrs instead of shadowed actions.
